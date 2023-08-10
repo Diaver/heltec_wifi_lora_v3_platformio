@@ -257,7 +257,7 @@ void loop()
 
 	if(!operationDone)
 	{
-		delay(100);
+		delay(10);
 		return;
 	}
 
