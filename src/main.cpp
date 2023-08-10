@@ -3,7 +3,6 @@
 #include <U8g2lib.h>
 #include <RadioLib.h>
 #include "images.h"
-
 #include <Wire.h>
 #include "WiFi.h"
 
@@ -14,7 +13,7 @@
 #define LORA_DIO1_PIN   14
 #define LORA_BUSY_PIN   13
 
-#define OLED_RESET 21 // Reset pin # (or -1 if sharing Arduino reset pin)
+#define OLED_RESET 21 
 #define OLED_SDA 17
 #define OLED_SCL 18
 
@@ -33,7 +32,21 @@ U8G2_SSD1306_128X64_NONAME_F_SW_I2C display(U8G2_R0, /* clock=*/ OLED_SCL, /* da
 SX1262 Lora = new Module(LORA_NSS_PIN, LORA_DIO1_PIN, LORA_RESET_PIN, LORA_BUSY_PIN);
 
 
-void logo(){
+int transmissionState = RADIOLIB_ERR_NONE;
+
+// flag to indicate transmission or reception state
+bool transmitFlag = false;
+
+unsigned int counter = 0;
+int LED = 35;
+
+// flag to indicate that a packet was sent or received
+volatile bool operationDone = false;
+
+
+
+void logo()
+{
 	display.clearBuffer();
 	display.drawXBM(0,5, logo_width, logo_height,(const unsigned char *)logo_bits);
 	display.sendBuffer();
@@ -70,7 +83,6 @@ void WIFISetUp(void)
 		display.clearBuffer();
 		display.drawStr(0, 10, "Connected.");
 		display.sendBuffer();
-//		delay(500);
 	}
 	else
 	{
@@ -78,7 +90,6 @@ void WIFISetUp(void)
 		display.clearBuffer();
 		display.drawStr(0, 10, "Failed to connect.");
 		display.sendBuffer();
-		//while(1);
 	}
 	display.drawStr(0, 20, "WiFi setup done");
 	display.sendBuffer();
@@ -87,11 +98,11 @@ void WIFISetUp(void)
 
 void WIFIScan(unsigned int value)
 {
-	unsigned int i;
     WiFi.mode(WIFI_STA);
 
-	for(i=0;i<value;i++)
+	for(int i=0; i<value; i++)
 	{
+		display.clearBuffer();
 		display.drawStr(0, 20, "Starting scan.");
 		display.sendBuffer();
 
@@ -106,7 +117,6 @@ void WIFIScan(unsigned int value)
 			display.clearBuffer();
 			display.drawStr(0, 0, "No network found");
 			display.sendBuffer();
-			//while(1);
 		}
 		else
 		{
@@ -115,7 +125,8 @@ void WIFIScan(unsigned int value)
 			display.sendBuffer();
 			delay(500);
 
-			for (int i = 0; i < n; ++i) {
+			for (int i = 0; i < n; ++i) 
+			{
 			// Print SSID and RSSI for each network found
 				display.drawStr(0, (i+1)*9, String(i + 1).c_str());
 				display.drawStr(6, (i+1)*9, ":");
@@ -134,40 +145,30 @@ void WIFIScan(unsigned int value)
 }
 
 
-bool resendflag=false;
-bool deepsleepflag=false;
-
-int transmissionState = RADIOLIB_ERR_NONE;
-
-// flag to indicate transmission or reception state
-bool transmitFlag = false;
-
-unsigned int counter = 0;
-
-// flag to indicate that a packet was sent or received
-volatile bool operationDone = false;
-
 // this function is called when a complete packet
 // is transmitted or received by the module
 // IMPORTANT: this function MUST be 'void' type
 //            and MUST NOT have any arguments!
-void setFlag(void) {
-  // we sent or received a packet, set the flag
-  operationDone = true;
+void setFlag(void) 
+{
+	operationDone = true;
+	Serial.println("operationDone = true");
 }
 
-void setup(void) {
+void setup(void) 
+{
 
 	Serial.begin(115200);
-	pinMode(9, OUTPUT);
-	digitalWrite(9, 0);	// default output in I2C mode for the SSD1306 test shield: set the i2c adr to 0
 
   	display.begin();
-	display.setFont(u8g2_font_5x8_mf);
+	display.setFont(u8g2_font_NokiaSmallPlain_te );
+	
+	pinMode(LED, OUTPUT);
 
 	logo();
 	delay(3000);
 	display.clear();
+
 
 	WIFISetUp();
 	WiFi.disconnect(); //Reinitialize WiFi
@@ -185,13 +186,16 @@ void setup(void) {
 
 	int state = Lora.begin();
 
-	if (state == RADIOLIB_ERR_NONE) {
+	if (state == RADIOLIB_ERR_NONE) 
+	{
 		Serial.println(F("Lora Initialized!"));
 
 		display.clearBuffer();
 		display.drawStr(0, 10, "Lora Initialized!");
 		display.sendBuffer();
-	} else {
+	} 
+	else 
+	{
 		Serial.print(F("Lora failed, code "));
 		Serial.println(state);
 
@@ -202,147 +206,133 @@ void setup(void) {
 		while (true);
 	}
 
-	if (Lora.setFrequency(915.0) == RADIOLIB_ERR_INVALID_FREQUENCY) {
+	if (Lora.setFrequency(915.0) == RADIOLIB_ERR_INVALID_FREQUENCY) 
+	{
 		Serial.println(F("Selected value is invalid for FREQUENCY"));
 		while (true);
  	}
 
-	if (Lora.setSpreadingFactor(7) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR) {
+	if (Lora.setSpreadingFactor(7) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR) 
+	{
 		Serial.println(F("Selected value is invalid for SPREADING_FACTOR!"));
 		while (true);
 	}
 
-	if (Lora.setCodingRate(5) == RADIOLIB_ERR_INVALID_CODING_RATE) {
+	if (Lora.setCodingRate(5) == RADIOLIB_ERR_INVALID_CODING_RATE) 
+	{
 		Serial.println(F("Selected value is invalid for CODING_RATE!"));
 		while (true);
 	}
 
 	 // set the function that will be called
   	// when new packet is received
- 	 Lora.setDio1Action(setFlag);
+ 	Lora.setDio1Action(setFlag);
 
-   /* // send the first packet on this node
-    Serial.print(F("[SX1262] Sending first packet ... "));
 
-	
-	display.clearBuffer();
-	display.drawStr(0, 10, "Sending first packet ...");
-	display.sendBuffer();
-
-    transmissionState = Lora.startTransmit("Hello" + String(counter++));
-    transmitFlag = true;*/
-
-    // start listening for LoRa packets on this node
-    Serial.print(F("[SX1262] Starting to listen ... "));
+    // send the first packet on this node
+    Serial.println(F("[SX1262] Sending first packet ... "));
 
 	display.clearBuffer();
-	display.drawStr(0, 10, "Starting to listen...");
+	display.drawStr(0, 10, "Sending first packet..");
 	display.sendBuffer();
 
-    state = Lora.startReceive();
-    if (state == RADIOLIB_ERR_NONE) {
-      	Serial.println(F("success!"));
 
-		
-		display.drawStr(0, 20, "success!");
-		display.sendBuffer();
+  	String sendData = "hello #" + String(counter++);
+    transmissionState = Lora.startTransmit(sendData) ; 
+    transmitFlag = true;
 
-    } else {
-		Serial.print(F("failed, code "));
-		Serial.println(state);
+	if (transmissionState == RADIOLIB_ERR_NONE) 
+	{
+		 Serial.print(F("success!"));
+	}
+	else
+	{
+		Serial.print(F("not success!"));
+	}
 
-		display.drawStr(0, 20, "failed, code " + state);
-		display.sendBuffer();
-
-      while (true);
-    }
 }
 
+void loop() 
+{
 
+	if(!operationDone)
+	{
+		delay(100);
+		return;
+	}
 
-void loop() {
-  // check if the previous operation finished
-  if(operationDone) {
-    // reset flag
-    operationDone = false;
+	int16_t rssi = 0;
 
-    if(transmitFlag) {
-      // the previous operation was transmission, listen for response
-      // print the result
-      if (transmissionState == RADIOLIB_ERR_NONE) {
-        // packet was successfully sent
-        Serial.println(F("transmission finished!"));
+	operationDone = false;
 
-      } else {
-        Serial.print(F("failed, code "));
-        Serial.println(transmissionState);
+	if(transmitFlag)
+	{
+		Serial.println(F("Transmission finished: ")) ;
+		transmitFlag = false;
 
-      }
-
-      // listen for response
-      Lora.startReceive();
-      transmitFlag = false;
-
-    } else {
-      // the previous operation was reception
-      // print data and send another packet
-      String str;
-      int state = Lora.readData(str);
-
-      if (state == RADIOLIB_ERR_NONE) {
-
-
-        // packet was successfully received
-        Serial.println(F("[SX1262] Received packet!"));
-
-        // print data of the packet
-        Serial.print(F("[SX1262] Data:\t\t"));
-        Serial.println(str);
-
-		int16_t RssiDetection= abs(Lora.getRSSI());
-		if(RssiDetection < 65)
+		if (transmissionState == RADIOLIB_ERR_NONE)
 		{
-		digitalWrite(25, HIGH);  
+			Serial.print(F("with success!"));
 		}
 		else
 		{
-		digitalWrite(25, LOW);  
-		}        
+			Serial.print(F("with error: "));
+			Serial.print(transmissionState);
+		}
 
+		Serial.println(F("Start receing data")) ;
+		transmitFlag = false;
+		Lora.startReceive();
+		
 
-		String getRSSI = String(RssiDetection);
+	}
+	else
+	{
+		Serial.println(F("Receiving finished: ")) ;
 
+		String str;
+      	int state = Lora.readData(str);
 
-        // print RSSI (Received Signal Strength Indicator)
-        Serial.print(F("[SX1262] RSSI:\t\t"));
-        Serial.print(getRSSI);
-        Serial.println(F(" dBm"));
+		if (state == RADIOLIB_ERR_NONE) 
+		{
+			Serial.print(F("with success!"));
+			Serial.println(F("[SX1262] Data:\t\t"));
+        	Serial.println(str);
 
-        // print SNR (Signal-to-Noise Ratio)
-        Serial.print(F("[SX1262] SNR:\t\t"));
-        Serial.print(Lora.getSNR());
-        Serial.println(F(" dB"));
+			rssi = Lora.getRSSI();
+			int16_t rssiDetection = abs(rssi);
 
+			if(rssiDetection < 65)
+			{
+				digitalWrite(LED, HIGH);  
+			}
+			else
+			{
+				digitalWrite(LED, LOW);  
+			}
 
-		display.clearBuffer();
-		display.drawStr(0, 50, String("Packet " + (String)(counter-1) + " sent done").c_str());
-		//display.drawStr(0, 0, String("Received Size  " + str.length() + " packages:").c_str());
-		display.drawStr(0, 10, str.c_str());
-		display.drawStr(0, 20, String("With " + getRSSI + "db").c_str());
-		display.sendBuffer();
-		delay(100);
+			display.clearBuffer();
+			
+			display.drawStr(0, 10, "lora data show");
+			display.drawStr(0, 20, String("R_data: " + str).c_str());
+			display.drawStr(0, 30, String("R_size: " + (String)(str.length()) + " R_rssi:" + (String)(rssiDetection)).c_str());
 
-      }
+			display.drawStr(0, 50, String("sent num: " + (String)(counter-1)).c_str());
+			display.sendBuffer();
+			delay(100); 
 
-      // wait a second before transmitting again
-      delay(1000);
+		}
+		else
+		{
+			Serial.print(F("with error"));
+		}
 
-      // send another one
-      Serial.print(F("[SX1262] Sending another packet ... "));
+		delay(1000);		
 
-      transmissionState = Lora.startTransmit("Hello" + String(counter++));
-      transmitFlag = true;
-    }
-  
-  }
+		Serial.println(F("Start transmitting data")) ;
+		String sendData = "hello #" + String(counter++) + " Rssi:" + (String)(rssi);
+    	transmissionState = Lora.startTransmit(sendData) ; 
+
+      	transmitFlag = true;
+	}
 }

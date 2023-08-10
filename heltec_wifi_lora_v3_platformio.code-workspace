@@ -23,7 +23,9 @@
 			"utility": "cpp",
 			"unordered_set": "cpp",
 			"string_view": "cpp",
-			"initializer_list": "cpp"
+			"initializer_list": "cpp",
+			"random": "cpp",
+			"sstream": "cpp"
 		}
 	}
 }
