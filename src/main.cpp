@@ -29,7 +29,7 @@ U8G2_SSD1306_128X64_NONAME_F_SW_I2C display(U8G2_R0, /* clock=*/ OLED_SCL, /* da
 #define LORA_MISO      11
 #define LORA_MOSI      10
 
-SX1262 Lora = new Module(LORA_NSS_PIN, LORA_DIO1_PIN, LORA_RESET_PIN, LORA_BUSY_PIN);
+SX1262 Lora = new Module(/*cs*/LORA_NSS_PIN, /*irq*/LORA_DIO1_PIN, /*rst*/LORA_RESET_PIN, /*gpio*/LORA_BUSY_PIN);
 
 
 int transmissionState = RADIOLIB_ERR_NONE;
@@ -182,7 +182,7 @@ void setup(void)
 	Serial.printf("%08X\n",(uint32_t)chipid);//print Low 4bytes.
 
 
-	SPI.begin(LORA_CLK,LORA_MISO,LORA_MOSI,RADIO_NSS);
+	SPI.begin(LORA_CLK, LORA_MISO, LORA_MOSI, RADIO_NSS);
 
 	int state = Lora.begin();
 
